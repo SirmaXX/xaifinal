@@ -184,3 +184,16 @@ plot(bd_xboost)
 
 
 ####################### breakdown #############################
+####################### shap #############################
+
+explain_xboost_shap <- DALEX::explain(model = model,
+                                           data = train_x,
+                                           y = train_y,
+                                           label = "xboost shapley değerleri")
+
+prediction_xboost <- predict(model, newdata = new_observation_matrix)
+
+sh_xboost <- predict_parts(explain_xboost_shap, new_observation = new_observation_matrix, type = "shap")
+
+plot(sh_xboost)
+####################### shap #############################
