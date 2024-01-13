@@ -151,7 +151,8 @@ rmse2 <- caret::RMSE(test_y, pred_y2)
 cat("MSE: ", mse2, "\nMAE: ", mae2, "\nRMSE: ", rmse2)
 
 
-####################### XAI #############################
+########################################## XAI #############################################################
+########################################## xgboost #############################################################
 ####################### breakdown #############################
 library(DALEX) 
 explain_xboost_breakdown <- DALEX::explain(model = model,
@@ -197,3 +198,66 @@ sh_xboost <- predict_parts(explain_xboost_shap, new_observation = new_observatio
 
 plot(sh_xboost)
 ####################### shap #############################
+
+########################################## xgboost #############################################################
+
+
+########################################## lightgbm #############################################################
+
+
+library(DALEX) 
+explain_xboost_breakdown <- DALEX::explain(model = model1,
+                                           data = train_x,
+                                           y = train_y,
+                                           label = "lightgbm")
+
+
+# Calculate breakdown values
+bd_lightbm <- predict_parts(explain_xboost_breakdown, new_observation = new_observation_matrix, type = "break_down")
+
+# Plot breakdown values
+plot(bd_lightbm )
+
+
+####################### breakdown #############################
+####################### shap #############################
+
+explain_lightgbm_shap <- DALEX::explain(model = model1,
+                                      data = train_x,
+                                      y = train_y,
+                                      label = "lightgbm shapley değerleri")
+
+
+sh_lightgbm <- predict_parts(explain_lightgbm_shap, new_observation = new_observation_matrix, type = "shap")
+
+plot(sh_lightgbm )
+####################### shap #############################
+
+
+########################################## lightgbm #############################################################
+
+
+##########################################gbmmodel #############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##########################################gbmmodel #############################################################
