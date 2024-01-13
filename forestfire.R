@@ -206,7 +206,7 @@ plot(sh_xboost)
 
 
 library(DALEX) 
-explain_xboost_breakdown <- DALEX::explain(model = model1,
+explain_lightbm_breakdown <- DALEX::explain(model = model1,
                                            data = train_x,
                                            y = train_y,
                                            label = "lightgbm")
@@ -237,27 +237,129 @@ plot(sh_lightgbm )
 ########################################## lightgbm #############################################################
 
 
+########################################## gbmmodel #############################################################
+
+
+####################### breakdown #############################
+
+library(DALEXtra)
+
+# Assuming 'gbmmodel' is your GBM model
+explainer_gbmmodel <- DALEXtra::explain(model = gbmmodel,
+                                        data = train_x,
+                                        y = train_y,
+                                        is_multiclass = FALSE,
+                                        label = "gbmmodel")
+
+# Assuming 'new_observation_matrix' is your new observation
+new_observation_matrix <- as.matrix(train_x[1, , drop = FALSE])
+
+# Predict using the explainer
+prediction <- DALEXtra::predict_parts(explainer_gbmmodel, new_observation = new_observation_matrix, type = "break_down")
+
+# Plot breakdown values
+plot(prediction)
+####################### shap #############################
+
+
 ##########################################gbmmodel #############################################################
 
 
 
+############################## global değişken ####################
+##################### global xboosts ####################
+
+# Create variable importance plot
+vip_xboost <- model_parts(explainer =explain_xboost_breakdown, 
+                          loss_function = loss_root_mean_square,
+                          B = 50,
+                          type = "difference")
+
+# Plot variable importance
+library("ggplot2")
+plot(vip_xboost ) +
+  ggtitle("Mean variable-importance over 50 permutations", "") 
+
+
+partialvip_xboost <- model_profile(explainer = explain_xboost_breakdown)
+
+library("ggplot2")
+plot(partialvip_xboost) +  ggtitle("Partial-dependence profile for area") 
+
+
+
+pdp_rf_clust <- model_profile(explainer = explain_xboost_breakdown, 
+                              k = 3)
+
+
+plot(pdp_rf_clust, geom = "profiles") + 
+  ggtitle("Clustered partial-dependence profiles for area") 
+
+##################### global xboosts ####################
+##################### global lightbm ####################
+
+
+vip_lightbm_clust<- model_parts(explainer =explain_lightbm_breakdown , 
+                          loss_function = loss_root_mean_square,
+                          B = 50,
+                          type = "difference")
+
+# Plot variable importance
+library("ggplot2")
+plot(vip_lightbm_clust ) +
+  ggtitle("Mean variable-importance over 50 permutations", "") 
+
+
+partialvip_lightbm <- model_profile(explainer =explain_lightbm_breakdown )
+
+library("ggplot2")
+plot(partialvip_lightbm) +  ggtitle("Partial-dependence profile for area") 
+
+
+
+lightbm_clust <- model_profile(explainer = explain_lightbm_breakdown , 
+                              k = 3)
+
+
+plot(lightbm_clust, geom = "profiles") + 
+  ggtitle("Clustered partial-dependence profiles for area") 
+
+
+##################### global lightbm ####################
 
 
 
 
 
+##################### global gbmmodel  ###################################### 
+
+vip_gbmmodel_clust<- model_parts(explainer =explainer_gbmmodel , 
+                                loss_function = loss_root_mean_square,
+                                B = 50,
+                                type = "difference")
+
+# Plot variable importance
+library("ggplot2")
+plot(vip_gbmmodel_clust ) +
+  ggtitle("Mean variable-importance over 50 permutations", "") 
+
+
+partialvip_gbmmodel <- model_profile(explainer =explainer_gbmmodel  )
+
+library("ggplot2")
+plot(partialvip_gbmmodel) +  ggtitle("Partial-dependence profile for area") 
+
+
+
+gbmmodel_clust <- model_profile(explainer = explainer_gbmmodel , 
+                               k = 3)
+
+
+plot(gbmmodel_clust , geom = "profiles") + 
+  ggtitle("Clustered partial-dependence profiles for area") 
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-##########################################gbmmodel #############################################################
+######################## global gbmmodel ######################## 
