@@ -1,0 +1,403 @@
+---
+title: "Forestfire Regresyon Problemi"
+subtitle: "Final Ödevi"
+author: "Deniz BALCI"
+format: pdf
+
+editor: visual
+---
+
+# Orman yangınlari veriseti(Regresyon problemi)
+## problem tanımı
+Bu verisetindeki  amacımız yanmış alanı tahmin etmektir.
+
+Veri kaynağı:<a href="https://archive.ics.uci.edu/dataset/162/forest+fires">
+https://archive.ics.uci.edu/dataset/162/forest+fires
+
+</a>
+
+   1. X - Montesinho park haritası içindeki x ekseni uzamsal koordinatı: 1'den 9'a kadar
+   2. Y - Montesinho park haritası içinde y ekseni uzamsal koordinatı: 2 ila 9
+   3. ay - yılın ayı: 'jan' ila 'dec' 
+   4. gün - haftanın günü: 'mon' ile 'sun' arası
+   5. FFMC - FWI sisteminden FFMC endeksi: 18,7 ila 96,20
+   6. DMC - FWI sisteminden alınan DMC endeksi: 1,1 ila 291,3 
+   7. DC - FWI sisteminden alınan DC endeksi: 7,9 ila 860,6 
+   8. ISI - FWI sisteminden ISI endeksi: 0,0 ila 56,10
+   9. temp - Santigrat derece cinsinden sıcaklık: 2,2 ila 33,30
+   10. RH - % cinsinden bağıl nem: 15,0 ila 100
+   11. rüzgar - km/sa cinsinden rüzgar hızı: 0.40 ila 9.40 
+   12. yağmur - mm/m2 cinsinden dış yağmur: 0.0 ila 6.4 
+   13. alan - ormanın yanmış alanı (hektar olarak): 0.00 ila 1090.84 
+   (bu çıktı değişkeni 0.0'a doğru çok çarpıktır, bu nedenle
+    logaritma dönüşümü ile modellemek mantıklıdır).
+    
+    
+## Veri ön işleme
+### Paketlerin yüklenmesi
+
+```{r}
+library(caret)
+library(xgboost)
+library(caret)
+library(lightgbm)
+library(rsample)
+library(party)
+library(caTools) 
+library(randomForest) 
+library(corrplot)
+library(dplyr)
+
+df <- read.csv('/home/deniz/Masaüstü/yükseklisans/ayz/xaifinal/forestfires.csv', sep=',')
+
+# Get unique values for each column
+unique_values <- sapply(df, function(y) sum(length(unique(y))))
+head(unique_values)
+# Display unique values
+na_count <-sapply(df, function(y) sum(length(which(is.na(y)))))
+head(na_count)
+
+categorical_cols <- df %>% select_if(is.character)
+head(categorical_cols)
+
+# Select numerical columns
+numerical_cols <- df %>% select_if(is.numeric)
+
+
+corr_matrix <- cor(numerical_cols )
+
+corrplot::corrplot(corr_matrix, method = "color")
+
+```
+
+### veri parçalama
+
+```{r}
+
+
+# Split into training (70%) and testing set (30%)
+parts <- createDataPartition(df$area, p = 0.7, list = FALSE)
+
+
+train <- df[parts, ]
+test <- df[-parts, ]
+
+# Define predictor and response variables in the training set
+train_x <- data.matrix(train[, -which(names(train) == 'area')])
+train_y <- train[['area']]
+
+# Define predictor and response variables in the testing set
+test_x <- data.matrix(test[, -which(names(test) == 'area')])
+test_y <- test[['area']]
+```
+
+## BLACKBOX MODELLER
+
+### XBOOST
+```{r}
+
+# Define final training and testing sets
+xgb_train <- xgb.DMatrix(data = train_x, label = train_y)
+xgb_test <- xgb.DMatrix(data = test_x, label = test_y)
+
+# Define watchlist
+watchlist <- list(train = xgb_train, test = xgb_test)
+
+# Fit XGBoost model and display training and testing data at each round
+model <- xgb.train(data = xgb_train, max.depth = 3, watchlist = watchlist, nrounds = 70)
+
+# Make predictions on the testing set
+pred_y <- predict(model, xgb_test)
+
+# Calculate MSE, MAE, and RMSE
+mse <- mean((test_y - pred_y)^2)
+mae <- caret::MAE(test_y, pred_y)
+rmse <- caret::RMSE(test_y, pred_y)
+
+print(paste("MSE:", mse))
+print(paste("MAE:", mae))
+print(paste("RMSE:", rmse))
+```
+### LİGHTGBM
+
+```{r}
+
+dtrain = lgb.Dataset(train_x, label = train_y)
+dtest = lgb.Dataset.create.valid(dtrain, test_x, label = test_y)
+
+# define parameters
+params = list(
+  objective = "regression"
+  , metric = "l2"
+  , min_data = 1L
+  , learning_rate = .3
+)
+
+# validataion data
+valids = list(test = dtest)
+
+
+# train model 
+model1 = lgb.train(
+  params = params
+  , data = dtrain
+  , nrounds = 5L
+  , valids = valids
+)
+lgb.get.eval.result(model1, "test", "l2")
+# prediction
+pred_y1 = predict(model1, test_x) 
+
+
+# accuracy check
+mse1 = mean((test_y - pred_y1)^2)
+mae1 = caret::MAE(test_y, pred_y1)
+rmse1 = caret::RMSE(test_y, pred_y1)
+
+cat("MSE: ", mse1, "\nMAE: ", mae1, "\nRMSE: ", rmse1)
+```
+### GBM MODEL
+
+```{r}
+library(gbm)
+
+train$month <- as.factor(train$month)
+train$day <- as.factor(train$day)
+
+# Assuming you have a data frame named 'train' with the response variable 'Diabetes_012'
+gbmmodel <- gbm(area ~ ., data = train, distribution = "gaussian", n.trees = 20,
+                shrinkage = 0.01, interaction.depth = 4)
+
+# Assuming your 'test_x' is a data frame
+# Convert it to a data frame if it's a matrix
+test_x_df <- as.data.frame(test_x)
+
+# Predict using the gbm model
+pred_y2 <- predict(gbmmodel, newdata = test_x_df, n.trees = 20, type = "response")
+
+# Assuming 'test_y' is the true response variable
+# accuracy check
+mse2 <- mean((test_y - pred_y2)^2)
+mae2 <- caret::MAE(test_y, pred_y2)
+rmse2 <- caret::RMSE(test_y, pred_y2)
+
+cat("MSE: ", mse2, "\nMAE: ", mae2, "\nRMSE: ", rmse2)
+
+```
+
+
+
+## AÇIKLAYICI YAPAY ZEKA BÖLÜMÜ
+### LOCAL AÇIKLAYICILAR
+### XGBOOST MODELİ
+#### BREAKDOWN 
+
+```{r}
+library(DALEX) 
+explain_xboost_breakdown <- DALEX::explain(model = model,
+                                           data = train_x,
+                                           y = train_y,
+                                           label = "xboost")
+
+# Assuming train_x[[1]] is a numeric vector or matrix
+new_observation <- as.data.frame(train_x[1, , drop = FALSE])
+
+# Extract feature names from the XGBoost model
+model_feature_names <- colnames(model$feature_names)
+
+# Check and set correct feature names in the new observation
+if (!identical(colnames(new_observation), model_feature_names)) {
+  colnames(new_observation) <- model_feature_names
+}
+
+# Convert the new observation to a matrix
+new_observation_matrix <- as.matrix(new_observation)
+
+# Predict using the XGBoost model
+prediction <- predict(model, newdata = new_observation_matrix)
+
+# Calculate breakdown values
+bd_xboost <- predict_parts(explain_xboost_breakdown, new_observation = new_observation_matrix, type = "break_down")
+
+# Plot breakdown values
+plot(bd_xboost)
+
+```
+
+
+#### SHAPLEY DEĞERLERİ
+```{r}
+explain_xboost_shap <- DALEX::explain(model = model,
+                                           data = train_x,
+                                           y = train_y,
+                                           label = "xboost shapley değerleri")
+
+prediction_xboost <- predict(model, newdata = new_observation_matrix)
+
+sh_xboost <- predict_parts(explain_xboost_shap, new_observation = new_observation_matrix, type = "shap")
+
+plot(sh_xboost)
+
+```
+### LİGHTGBM MODELİ
+####  BREAKDOWN
+```{r}
+library(DALEX) 
+explain_lightbm_breakdown <- DALEX::explain(model = model1,
+                                           data = train_x,
+                                           y = train_y,
+                                           label = "lightgbm")
+
+# Calculate breakdown values
+bd_lightbm <- predict_parts(explain_lightbm_breakdown, new_observation = new_observation_matrix, type = "break_down")
+
+# Plot breakdown values
+plot(bd_lightbm )
+
+
+####################### breakdown #############################
+library(DALEX) 
+explain_lightbm_breakdown <- DALEX::explain(model = model1,
+                                           data = train_x,
+                                           y = train_y,
+                                           label = "lightgbm")
+
+
+# Calculate breakdown values
+bd_lightbm <- predict_parts(explain_lightbm_breakdown, new_observation = new_observation_matrix, type = "break_down")
+
+# Plot breakdown values
+plot(bd_lightbm )
+
+
+####################### breakdown #############################
+
+```
+
+####  SHAPLEY DEĞERLERİ
+```{r}
+####################### shap #############################
+
+explain_lightgbm_shap <- DALEX::explain(model = model1,
+                                      data = train_x,
+                                      y = train_y,
+                                      label = "lightgbm shapley değerleri")
+
+
+sh_lightgbm <- predict_parts(explain_lightgbm_shap, new_observation = new_observation_matrix, type = "shap")
+
+plot(sh_lightgbm )
+####################### shap #############################
+
+explain_lightgbm_shap <- DALEX::explain(model = model1,
+                                      data = train_x,
+                                      y = train_y,
+                                      label = "lightgbm shapley değerleri")
+
+
+sh_lightgbm <- predict_parts(explain_lightgbm_shap, new_observation = new_observation_matrix, type = "shap")
+
+plot(sh_lightgbm )
+
+```
+
+###  GLOBAL AÇIKLAYICILAR
+#### XBOOST
+```{r}
+# Create variable importance plot
+vip_xboost <- model_parts(explainer =explain_xboost_breakdown, 
+                          loss_function = loss_root_mean_square,
+                          B = 50,
+                          type = "difference")
+
+# Plot variable importance
+library("ggplot2")
+plot(vip_xboost ) +
+  ggtitle("Mean variable-importance over 50 permutations", "") 
+
+
+partialvip_xboost <- model_profile(explainer = explain_xboost_breakdown)
+
+library("ggplot2")
+plot(partialvip_xboost) +  ggtitle("Partial-dependence profile for area") 
+
+
+
+pdp_rf_clust <- model_profile(explainer = explain_xboost_breakdown, 
+                              k = 3)
+
+
+plot(pdp_rf_clust, geom = "profiles") + 
+  ggtitle("Clustered partial-dependence profiles for area") 
+
+
+```
+
+
+#### LİGHTGBM
+```{r}
+
+
+
+vip_lightbm_clust<- model_parts(explainer =explain_lightbm_breakdown , 
+                          loss_function = loss_root_mean_square,
+                          B = 50,
+                          type = "difference")
+
+# Plot variable importance
+library("ggplot2")
+plot(vip_lightbm_clust ) +
+  ggtitle("Mean variable-importance over 50 permutations", "") 
+
+
+partialvip_lightbm <- model_profile(explainer =explain_lightbm_breakdown )
+
+library("ggplot2")
+plot(partialvip_lightbm) +  ggtitle("Partial-dependence profile for area") 
+
+
+
+lightbm_clust <- model_profile(explainer = explain_lightbm_breakdown , 
+                              k = 3)
+
+
+plot(lightbm_clust, geom = "profiles") + 
+  ggtitle("Clustered partial-dependence profiles for area") 
+
+
+
+```
+
+#### GLOBAL GBMMODEL
+
+```{r}
+
+vip_gbmmodel_clust<- model_parts(explainer =explainer_gbmmodel , 
+                                loss_function = loss_root_mean_square,
+                                B = 50,
+                                type = "difference")
+
+# Plot variable importance
+library("ggplot2")
+plot(vip_gbmmodel_clust ) +
+  ggtitle("Mean variable-importance over 50 permutations", "") 
+
+
+partialvip_gbmmodel <- model_profile(explainer =explainer_gbmmodel  )
+
+library("ggplot2")
+plot(partialvip_gbmmodel) +  ggtitle("Partial-dependence profile for area") 
+
+
+
+gbmmodel_clust <- model_profile(explainer = explainer_gbmmodel , 
+                               k = 3)
+
+
+plot(gbmmodel_clust , geom = "profiles") + 
+  ggtitle("Clustered partial-dependence profiles for area") 
+
+
+
+
+```
