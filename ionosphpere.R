@@ -93,7 +93,7 @@ classifier <- ksvm(g ~ ., data = dftrain, type = 'C-svc', kernel = 'rbfdot', C =
 # Use the plot function without specifying 'data'
 
 
-############################### GBM CLASİFİER #############################
+############################### LİGHTGBM CLASİFİER #############################
 install.packages("lightgbm")
 library(caret)
 library(lightgbm)
@@ -230,3 +230,88 @@ plot(shap_ksvm)
 ####################### shap #############################
 
 ########################################### KSVM   ##########################################
+
+
+
+
+################################# GLOBAL DEĞİŞKEN ###########################################
+################################# Global Random forests ###########################################
+# Plot variable importance
+library("ggplot2")
+# Create variable importance plot
+explainer_rf <- DALEX::explain(model = classifier_RF,
+                               data = train_x,
+                               y = train_y,
+                               label = "RandomForest")
+
+randomforest_plot <- model_parts(explainer =explainer_rf, 
+                          loss_function = loss_root_mean_square,
+                          B = 50,
+                          type = "difference")
+
+
+plot(randomforest_plot  ) +
+  ggtitle("Mean variable-importance over 50 permutations", "") 
+
+
+partialvip_randomforest <- model_profile(explainer = explainer_rf)
+
+
+plot(partialvip_randomforest) +  ggtitle("Partial-dependence profile for area") 
+
+
+
+pdp_rf_clust <- model_profile(explainer =explainer_rf,   k = 3)
+
+
+plot(pdp_rf_clust, geom = "profiles") + 
+  ggtitle("Clustered partial-dependence profiles for area") 
+
+
+
+################################# Global Random forests ###########################################
+
+################################# Global KSVM  ###########################################
+explainer_lightgbm <- DALEX::explain(model = model,
+                                     data = train_x,
+                                     y = train_y,
+                                     label = "LightGBM")
+
+# Calculate model parts
+new_observation_matrix <- as.matrix(train_x[1, , drop = FALSE])
+lightgbm_clust <- DALEX::predict_parts(explainer_lightgbm, 
+                                       new_observation = new_observation_matrix,
+                                       type = "break_down")
+
+# Plot the result
+plot(lightgbm_clust)
+
+# Plot variable importance
+library("ggplot2")
+plot(lightgbm_clust ) +
+  ggtitle("Mean variable-importance over 50 permutations", "") 
+
+
+partialvip_lightbm <- model_profile(explainer =lightgbm_clust )
+
+library("ggplot2")
+plot(partialvip_lightbm) +  ggtitle("Partial-dependence profile for area") 
+
+
+
+lightbm_clust <- model_profile(explainer =lightgbm_clust, 
+                               k = 3)
+
+
+plot(lightgbm_clust, geom = "profiles") + 
+  ggtitle("Clustered partial-dependence profiles for area") 
+
+
+
+
+
+
+
+
+
+################################# Global KSVM  ###########################################
