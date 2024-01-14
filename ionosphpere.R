@@ -181,10 +181,52 @@ plot(sh_classifier)
 
 
 ####################### shap #############################
+#################################### Random forest ##########################################
+
+########################################### KSVM   ##########################################
 
 
+####################### breakdown #############################
+library(DALEX)
+
+# Assuming 'classifier_RF' is your random forest model
+explain_ksvm_breakdown <- DALEX::explain(model = classifier,
+                                                 data = train_x,
+                                                 y = train_y,
+                                                 label = "randomforest")
+
+# Assuming 'train_x[1, , drop = FALSE]' is your new observation
+new_observation <- as.data.frame(train_x[1, , drop = FALSE])
+
+# Extract feature names from the random forest model
+model_feature_names <- colnames(train_x)
+
+# Check and set correct feature names in the new observation
+if (!identical(colnames(new_observation), model_feature_names)) {
+  colnames(new_observation) <- model_feature_names
+}
+
+# Convert the new observation to a matrix
+new_observation_matrix <- as.matrix(new_observation)
+
+# Predict using the random forest model
+prediction <- predict(classifier_RF, newdata = new_observation_matrix)
+
+# Calculate breakdown values
+bd_ksvm<- predict_parts(explain_randomforest_breakdown, new_observation = new_observation_matrix, type = "break_down")
+
+# Plot breakdown values
+plot(bd_ksvm)
 
 
+####################### breakdown #############################
+####################### shap #############################
 
+shap_ksvm<- predict_parts(explain_randomforest_breakdown, new_observation = new_observation_matrix, type = "shap")
 
+# Plot breakdown values
+plot(shap_ksvm)
 
+####################### shap #############################
+
+########################################### KSVM   ##########################################
