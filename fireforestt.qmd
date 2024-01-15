@@ -3,37 +3,35 @@ title: "Forestfire Regresyon Problemi"
 subtitle: "Final Ödevi"
 author: "Deniz BALCI"
 format: pdf
-
 editor: visual
 ---
 
 # Orman yangınlari veriseti(Regresyon problemi)
-## problem tanımı
-Bu verisetindeki  amacımız yanmış alanı tahmin etmektir.
 
-Veri kaynağı:<a href="https://archive.ics.uci.edu/dataset/162/forest+fires">
-https://archive.ics.uci.edu/dataset/162/forest+fires
+## problem tanımı
+
+Bu verisetindeki amacımız yanmış alanı tahmin etmektir.
+
+Veri kaynağı:<a href="https://archive.ics.uci.edu/dataset/162/forest+fires"> https://archive.ics.uci.edu/dataset/162/forest+fires
 
 </a>
 
-   1. X - Montesinho park haritası içindeki x ekseni uzamsal koordinatı: 1'den 9'a kadar
-   2. Y - Montesinho park haritası içinde y ekseni uzamsal koordinatı: 2 ila 9
-   3. ay - yılın ayı: 'jan' ila 'dec' 
-   4. gün - haftanın günü: 'mon' ile 'sun' arası
-   5. FFMC - FWI sisteminden FFMC endeksi: 18,7 ila 96,20
-   6. DMC - FWI sisteminden alınan DMC endeksi: 1,1 ila 291,3 
-   7. DC - FWI sisteminden alınan DC endeksi: 7,9 ila 860,6 
-   8. ISI - FWI sisteminden ISI endeksi: 0,0 ila 56,10
-   9. temp - Santigrat derece cinsinden sıcaklık: 2,2 ila 33,30
-   10. RH - % cinsinden bağıl nem: 15,0 ila 100
-   11. rüzgar - km/sa cinsinden rüzgar hızı: 0.40 ila 9.40 
-   12. yağmur - mm/m2 cinsinden dış yağmur: 0.0 ila 6.4 
-   13. alan - ormanın yanmış alanı (hektar olarak): 0.00 ila 1090.84 
-   (bu çıktı değişkeni 0.0'a doğru çok çarpıktır, bu nedenle
-    logaritma dönüşümü ile modellemek mantıklıdır).
-    
-    
+1.  X - Montesinho park haritası içindeki x ekseni uzamsal koordinatı: 1'den 9'a kadar
+2.  Y - Montesinho park haritası içinde y ekseni uzamsal koordinatı: 2 ila 9
+3.  ay - yılın ayı: 'jan' ila 'dec'
+4.  gün - haftanın günü: 'mon' ile 'sun' arası
+5.  FFMC - FWI sisteminden FFMC endeksi: 18,7 ila 96,20
+6.  DMC - FWI sisteminden alınan DMC endeksi: 1,1 ila 291,3
+7.  DC - FWI sisteminden alınan DC endeksi: 7,9 ila 860,6
+8.  ISI - FWI sisteminden ISI endeksi: 0,0 ila 56,10
+9.  temp - Santigrat derece cinsinden sıcaklık: 2,2 ila 33,30
+10. RH - % cinsinden bağıl nem: 15,0 ila 100
+11. rüzgar - km/sa cinsinden rüzgar hızı: 0.40 ila 9.40
+12. yağmur - mm/m2 cinsinden dış yağmur: 0.0 ila 6.4
+13. alan - ormanın yanmış alanı (hektar olarak): 0.00 ila 1090.84 (bu çıktı değişkeni 0.0'a doğru çok çarpıktır, bu nedenle logaritma dönüşümü ile modellemek mantıklıdır).
+
 ## Veri ön işleme
+
 ### Paketlerin yüklenmesi
 
 ```{r}
@@ -94,6 +92,7 @@ test_y <- test[['area']]
 ## BLACKBOX MODELLER
 
 ### XBOOST
+
 ```{r}
 
 # Define final training and testing sets
@@ -118,6 +117,7 @@ print(paste("MSE:", mse))
 print(paste("MAE:", mae))
 print(paste("RMSE:", rmse))
 ```
+
 ### LİGHTGBM
 
 ```{r}
@@ -156,6 +156,7 @@ rmse1 = caret::RMSE(test_y, pred_y1)
 
 cat("MSE: ", mse1, "\nMAE: ", mae1, "\nRMSE: ", rmse1)
 ```
+
 ### GBM MODEL
 
 ```{r}
@@ -185,12 +186,13 @@ cat("MSE: ", mse2, "\nMAE: ", mae2, "\nRMSE: ", rmse2)
 
 ```
 
-
-
 ## AÇIKLAYICI YAPAY ZEKA BÖLÜMÜ
+
 ### LOCAL AÇIKLAYICILAR
+
 ### XGBOOST MODELİ
-#### BREAKDOWN 
+
+#### BREAKDOWN
 
 ```{r}
 library(DALEX) 
@@ -224,8 +226,8 @@ plot(bd_xboost)
 
 ```
 
-
 #### SHAPLEY DEĞERLERİ
+
 ```{r}
 explain_xboost_shap <- DALEX::explain(model = model,
                                            data = train_x,
@@ -239,8 +241,11 @@ sh_xboost <- predict_parts(explain_xboost_shap, new_observation = new_observatio
 plot(sh_xboost)
 
 ```
+
 ### LİGHTGBM MODELİ
-####  BREAKDOWN
+
+#### BREAKDOWN
+
 ```{r}
 library(DALEX) 
 explain_lightbm_breakdown <- DALEX::explain(model = model1,
@@ -274,7 +279,8 @@ plot(bd_lightbm )
 
 ```
 
-####  SHAPLEY DEĞERLERİ
+#### SHAPLEY DEĞERLERİ
+
 ```{r}
 ####################### shap #############################
 
@@ -301,8 +307,10 @@ plot(sh_lightgbm )
 
 ```
 
-###  GLOBAL AÇIKLAYICILAR
+### GLOBAL AÇIKLAYICILAR
+
 #### XBOOST
+
 ```{r}
 # Create variable importance plot
 vip_xboost <- model_parts(explainer =explain_xboost_breakdown, 
@@ -333,8 +341,8 @@ plot(pdp_rf_clust, geom = "profiles") +
 
 ```
 
-
 #### LİGHTGBM
+
 ```{r}
 
 
