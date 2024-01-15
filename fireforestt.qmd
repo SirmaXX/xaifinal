@@ -48,17 +48,18 @@ library(dplyr)
 
 df <- read.csv('/home/deniz/Masaüstü/yükseklisans/ayz/xaifinal/forestfires.csv', sep=',')
 
-# Get unique values for each column
+# Her kolona ait unique değerler
 unique_values <- sapply(df, function(y) sum(length(unique(y))))
 head(unique_values)
-# Display unique values
+# boş veri sayısı
 na_count <-sapply(df, function(y) sum(length(which(is.na(y)))))
 head(na_count)
 
+# kategorik değişkenlerin listesi
 categorical_cols <- df %>% select_if(is.character)
 head(categorical_cols)
 
-# Select numerical columns
+# Sayısal değişkenlerin korelasyon matrisi
 numerical_cols <- df %>% select_if(is.numeric)
 
 
@@ -72,19 +73,18 @@ corrplot::corrplot(corr_matrix, method = "color")
 
 ```{r}
 
-
-# Split into training (70%) and testing set (30%)
+# Veri parçalama
 parts <- createDataPartition(df$area, p = 0.7, list = FALSE)
 
 
 train <- df[parts, ]
 test <- df[-parts, ]
 
-# Define predictor and response variables in the training set
+# Eğitim verisetleri
 train_x <- data.matrix(train[, -which(names(train) == 'area')])
 train_y <- train[['area']]
 
-# Define predictor and response variables in the testing set
+# Test verisetleri
 test_x <- data.matrix(test[, -which(names(test) == 'area')])
 test_y <- test[['area']]
 ```
@@ -103,8 +103,14 @@ xgb_test <- xgb.DMatrix(data = test_x, label = test_y)
 watchlist <- list(train = xgb_train, test = xgb_test)
 
 # Fit XGBoost model and display training and testing data at each round
-model <- xgb.train(data = xgb_train, max.depth = 3, watchlist = watchlist, nrounds = 70)
 
+model <- xgb.train(
+  data = xgb_train,
+  max.depth = 3,
+  watchlist = watchlist,
+  nrounds = 70,
+  objective = "reg:squarederror"  # Set the objective explicitly
+)
 # Make predictions on the testing set
 pred_y <- predict(model, xgb_test)
 
@@ -196,6 +202,7 @@ cat("MSE: ", mse2, "\nMAE: ", mae2, "\nRMSE: ", rmse2)
 
 ```{r}
 library(DALEX) 
+
 explain_xboost_breakdown <- DALEX::explain(model = model,
                                            data = train_x,
                                            y = train_y,
@@ -379,6 +386,13 @@ plot(lightbm_clust, geom = "profiles") +
 #### GLOBAL GBMMODEL
 
 ```{r}
+
+
+explainer_gbmmodel <- DALEX::explain(model = gbmmodel,
+                                        data = as.data.frame(train_x),
+                                        y = train_y,
+                                        is_multiclass = FALSE,
+                                        label = "gbmmodel")
 
 vip_gbmmodel_clust<- model_parts(explainer =explainer_gbmmodel , 
                                 loss_function = loss_root_mean_square,
