@@ -90,7 +90,7 @@ test_y <- test[['area']]
 ```
 
 ## BLACKBOX MODELLER
-
+Aşağıdaki açıklamak için 3 farklı model kullanacağız bu bölümde modeller oluşturulacaktır.
 ### XBOOST
 
 ```{r}
@@ -187,7 +187,7 @@ cat("MSE: ", mse2, "\nMAE: ", mae2, "\nRMSE: ", rmse2)
 ```
 
 ## AÇIKLAYICI YAPAY ZEKA BÖLÜMÜ
-
+İlk olarak local açıklayıcılar ile başlayacağız.Eğitim verisindeki 1.veri ile çalışmaya başlayacağız
 ### LOCAL AÇIKLAYICILAR
 
 ### XGBOOST MODELİ
@@ -225,6 +225,7 @@ bd_xboost <- predict_parts(explain_xboost_breakdown, new_observation = new_obser
 plot(bd_xboost)
 
 ```
+xboost yönteminde ve breakdown methodunda en çok katkıyı DC,DMC değişkenleri yapmıştır.
 
 #### SHAPLEY DEĞERLERİ
 
@@ -241,7 +242,7 @@ sh_xboost <- predict_parts(explain_xboost_shap, new_observation = new_observatio
 plot(sh_xboost)
 
 ```
-
+xboost yönteminde ve shapley methodunda en çok katkıyı DC,DMC değişkenleri yapmıştır.
 ### LİGHTGBM MODELİ
 
 #### BREAKDOWN
@@ -261,24 +262,9 @@ plot(bd_lightbm )
 
 
 ####################### breakdown #############################
-library(DALEX) 
-explain_lightbm_breakdown <- DALEX::explain(model = model1,
-                                           data = train_x,
-                                           y = train_y,
-                                           label = "lightgbm")
-
-
-# Calculate breakdown values
-bd_lightbm <- predict_parts(explain_lightbm_breakdown, new_observation = new_observation_matrix, type = "break_down")
-
-# Plot breakdown values
-plot(bd_lightbm )
-
-
-####################### breakdown #############################
 
 ```
-
+Lightgbm yönteminde ve breakdown methodunda en çok katkıyı Y,TEMP değişkenleri yapmıştır.
 #### SHAPLEY DEĞERLERİ
 
 ```{r}
@@ -295,23 +281,19 @@ sh_lightgbm <- predict_parts(explain_lightgbm_shap, new_observation = new_observ
 plot(sh_lightgbm )
 ####################### shap #############################
 
-explain_lightgbm_shap <- DALEX::explain(model = model1,
-                                      data = train_x,
-                                      y = train_y,
-                                      label = "lightgbm shapley değerleri")
 
-
-sh_lightgbm <- predict_parts(explain_lightgbm_shap, new_observation = new_observation_matrix, type = "shap")
-
-plot(sh_lightgbm )
 
 ```
+Lightgbm yönteminde ve shapley methodunda en çok katkıyı Y,TEMP değişkenleri yapmıştır.
 
-### GLOBAL AÇIKLAYICILAR
+
+
+## GLOBAL AÇIKLAYICILAR
 
 #### XBOOST
 
 ```{r}
+library("ggplot2")
 # Create variable importance plot
 vip_xboost <- model_parts(explainer =explain_xboost_breakdown, 
                           loss_function = loss_root_mean_square,
