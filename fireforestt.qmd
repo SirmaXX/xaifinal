@@ -90,8 +90,8 @@ test_y <- test[['area']]
 ```
 
 ## BLACKBOX MODELLER
-Aşağıdaki açıklamak için 3 farklı model kullanacağız bu bölümde modeller oluşturulacaktır.
-### XBOOST
+
+Aşağıdaki açıklamak için 3 farklı model kullanacağız bu bölümde modeller oluşturulacaktır. \### XBOOST
 
 ```{r}
 
@@ -187,8 +187,8 @@ cat("MSE: ", mse2, "\nMAE: ", mae2, "\nRMSE: ", rmse2)
 ```
 
 ## AÇIKLAYICI YAPAY ZEKA BÖLÜMÜ
-İlk olarak local açıklayıcılar ile başlayacağız.Eğitim verisindeki 1.veri ile çalışmaya başlayacağız
-### LOCAL AÇIKLAYICILAR
+
+İlk olarak local açıklayıcılar ile başlayacağız.Eğitim verisindeki 1.veri ile çalışmaya başlayacağız \### LOCAL AÇIKLAYICILAR
 
 ### XGBOOST MODELİ
 
@@ -225,6 +225,7 @@ bd_xboost <- predict_parts(explain_xboost_breakdown, new_observation = new_obser
 plot(bd_xboost)
 
 ```
+
 xboost yönteminde ve breakdown methodunda en çok katkıyı DC,DMC değişkenleri yapmıştır.
 
 #### SHAPLEY DEĞERLERİ
@@ -242,8 +243,8 @@ sh_xboost <- predict_parts(explain_xboost_shap, new_observation = new_observatio
 plot(sh_xboost)
 
 ```
-xboost yönteminde ve shapley methodunda en çok katkıyı DC,DMC değişkenleri yapmıştır.
-### LİGHTGBM MODELİ
+
+xboost yönteminde ve shapley methodunda en çok katkıyı DC,DMC değişkenleri yapmıştır. \### LİGHTGBM MODELİ
 
 #### BREAKDOWN
 
@@ -264,8 +265,8 @@ plot(bd_lightbm )
 ####################### breakdown #############################
 
 ```
-Lightgbm yönteminde ve breakdown methodunda en çok katkıyı Y,TEMP değişkenleri yapmıştır.
-#### SHAPLEY DEĞERLERİ
+
+Lightgbm yönteminde ve breakdown methodunda en çok katkıyı Y,TEMP değişkenleri yapmıştır. \#### SHAPLEY DEĞERLERİ
 
 ```{r}
 ####################### shap #############################
@@ -284,9 +285,8 @@ plot(sh_lightgbm )
 
 
 ```
+
 Lightgbm yönteminde ve shapley methodunda en çok katkıyı Y,TEMP değişkenleri yapmıştır.
-
-
 
 ## GLOBAL AÇIKLAYICILAR
 

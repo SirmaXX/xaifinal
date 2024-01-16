@@ -6,6 +6,7 @@ editor: visual
 ---
 
 # İYONOSFER VERİSETİ (BİNARY CLASSİFİCATİON SORUNU)
+
 Bu veri seti, bir radarın gönderdiği sinyallerin atmosferdeki iyonosfer tabakasından geçişini değerlendirmek amacıyla oluşturulmuştur.
 
 Veri seti iki sınıfa ayrılmıştır: "g" (Good) ve "b" (Bad). Bu sınıflar, radar sinyallerinin iyonosferde yansıtılıp yansıtılmadığını belirtir. Bu, uydu iletişimi sırasında sinyallerin alınabilirliği üzerinde etkili bir faktör olabilir.
@@ -17,8 +18,6 @@ Veri kaynağı:<a href="https://data.world/uci/ionosphere/workspace/project-summ
 </a>
 
 ## Veri ön işleme
-
-
 
 ```{r}
 # Load necessary libraries
@@ -52,8 +51,11 @@ train_y <- train_data[['g']]
 test_x <- test_data[, -which(names(test_data) == 'g')]
 test_y <- test_data[['g']]
 ```
+
 ## BLACKBOX MODELLER
+
 ### Random classifier
+
 ```{r}
 classifier_RF <- randomForest(x = train_x, 
                               y = as.factor(train_y),  # Ensure train_y is a factor
@@ -72,7 +74,9 @@ plot(classifier_RF)
 # Importance plot
 importance(classifier_RF)
 ```
+
 ### SVM
+
 ```{r}
 install.packages('e1071') 
 library(e1071) 
@@ -94,6 +98,7 @@ print(confusion_mtx)
 ```
 
 ### LİGHTGBM
+
 ```{r}
 
 library(caret)
@@ -130,9 +135,13 @@ pred <- predict(model, as.matrix(test_x))
 pred_y <- max.col(pred) - 1
 
 ```
+
 ## AÇIKLAYICI YAPAY ZEKA BÖLÜMÜ
+
 ## Local açıklayıcılar
+
 ### Random forest breakdown
+
 ```{r}
 
 library(DALEX)
@@ -169,6 +178,8 @@ plot(bd_randomforest)
 
 ```
 
+random forest yönteminde ve breakdown methodunda en çok katkıyı prop7 ve prop 32 değişkenleri yapmıştır.
+
 ### Random forest shap
 
 ```{r}
@@ -182,10 +193,13 @@ explain_classifier_shap <- DALEX::explain(model = classifier_RF,
 sh_classifier <- predict_parts(explain_classifier_shap , new_observation = new_observation_matrix, type = "shap")
 
 plot(sh_classifier)
+
 ```
 
+svm yönteminde ve shap methodunda en çok katkıyı prop3 ve prop 5 değişkenleri yapmıştır.
 
 ### SVM breakdown
+
 ```{r}
 
 library(DALEX)
@@ -220,14 +234,21 @@ bd_ksvm<- predict_parts(explain_randomforest_breakdown, new_observation = new_ob
 plot(bd_ksvm)
 
 ```
+
+svm yönteminde ve breakdown methodunda en çok katkıyı prop7 ve prop 32 değişkenleri yapmıştır.
+
+### 
+
 ### SVM breakdown
 
 ```{r}
 shap_ksvm<- predict_parts(explain_randomforest_breakdown, new_observation = new_observation_matrix, type = "shap")
 
-# Plot breakdown values
+# Plot shapley values
 plot(shap_ksvm)
 ```
+
+svm yönteminde ve shap methodunda en çok katkıyı prop3 ve prop 5 değişkenleri yapmıştır.
 
 ## Global açıklayıcılar
 
@@ -267,8 +288,8 @@ plot(pdp_rf_clust, geom = "profiles") +
 
 
 ```
-### Svm
 
+### Svm
 
 ```{r}
 
@@ -304,8 +325,8 @@ plot(pdp_rf_clust, geom = "profiles") +
 
 
 ```
-### lightgbm
 
+### lightgbm
 
 ```{r}
 explainer_lightgbm <- DALEX::explain(model = model,
