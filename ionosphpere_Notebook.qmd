@@ -276,7 +276,7 @@ plot(randomforest_plot  ) +
 partialvip_randomforest <- model_profile(explainer = explainer_rf)
 
 
-plot(partialvip_randomforest) +  ggtitle("Partial-dependence profile for area") 
+plot(partialvip_randomforest) +  ggtitle("Partial-dependence profile for signal") 
 
 
 
@@ -284,7 +284,7 @@ pdp_rf_clust <- model_profile(explainer =explainer_rf,   k = 3)
 
 
 plot(pdp_rf_clust, geom = "profiles") + 
-  ggtitle("Clustered partial-dependence profiles for area") 
+  ggtitle("Clustered partial-dependence profiles for signal") 
 
 
 ```
@@ -295,10 +295,13 @@ plot(pdp_rf_clust, geom = "profiles") +
 
 library("ggplot2")
 # Create variable importance plot
-explainer_svm_rf <- DALEX::explain(model = classifier,
-                               data = train_x,
-                               y = train_y,
-                               label = "RandomForest")
+explainer_svm_rf <- DALEX::explain(
+    model = classifier,
+    data = train_x,
+    y = train_y,
+    label = "RandomForest"
+)
+
 
 svm_plot <- model_parts(explainer =explainer_svm_rf, 
                           loss_function = loss_root_mean_square,
@@ -313,7 +316,7 @@ plot(svm_plot  ) +
 partialvip_randomforest <- model_profile(explainer = explainer_svm_rf)
 
 
-plot(partialvip_randomforest) +  ggtitle("Partial-dependence profile for area") 
+plot(partialvip_randomforest) +  ggtitle("Partial-dependence profile for signal") 
 
 
 
@@ -321,7 +324,7 @@ pdp_rf_clust <- model_profile(explainer =explainer_svm_rf,   k = 3)
 
 
 plot(pdp_rf_clust, geom = "profiles") + 
-  ggtitle("Clustered partial-dependence profiles for area") 
+  ggtitle("Clustered partial-dependence profiles for signal") 
 
 
 ```
@@ -352,7 +355,7 @@ plot(lightgbm_clust ) +
 partialvip_lightbm <- model_profile(explainer =lightgbm_clust )
 
 library("ggplot2")
-plot(partialvip_lightbm) +  ggtitle("Partial-dependence profile for area") 
+plot(partialvip_lightbm) +  ggtitle("Partial-dependence profile for signal") 
 
 
 
@@ -361,7 +364,7 @@ lightbm_clust <- model_profile(explainer =lightgbm_clust,
 
 
 plot(lightgbm_clust, geom = "profiles") + 
-  ggtitle("Clustered partial-dependence profiles for area") 
+  ggtitle("Clustered partial-dependence profiles for signal") 
 
 
 
