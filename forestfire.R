@@ -213,7 +213,7 @@ explain_lightbm_breakdown <- DALEX::explain(model = model1,
 
 
 # Calculate breakdown values
-bd_lightbm <- predict_parts(explain_xboost_breakdown, new_observation = new_observation_matrix, type = "break_down")
+bd_lightbm <- predict_parts(explain_lightbm_breakdown, new_observation = new_observation_matrix, type = "break_down")
 
 # Plot breakdown values
 plot(bd_lightbm )

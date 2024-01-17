@@ -239,7 +239,7 @@ svm yönteminde ve breakdown methodunda en çok katkıyı prop7 ve prop 32 deği
 
 ### 
 
-### SVM breakdown
+### SVM shap
 
 ```{r}
 shap_ksvm<- predict_parts(explain_randomforest_breakdown, new_observation = new_observation_matrix, type = "shap")
@@ -255,7 +255,6 @@ svm yönteminde ve shap methodunda en çok katkıyı prop3 ve prop 5 değişkenl
 ### random forest
 
 ```{r}
-
 library("ggplot2")
 # Create variable importance plot
 explainer_rf <- DALEX::explain(model = classifier_RF,
@@ -272,13 +271,16 @@ randomforest_plot <- model_parts(explainer =explainer_rf,
 plot(randomforest_plot  ) +
   ggtitle("Mean variable-importance over 50 permutations", "") 
 
-
+```
+```{r}
 partialvip_randomforest <- model_profile(explainer = explainer_rf)
 
 
 plot(partialvip_randomforest) +  ggtitle("Partial-dependence profile for signal") 
 
+```
 
+```{r}
 
 pdp_rf_clust <- model_profile(explainer =explainer_rf,   k = 3)
 
@@ -289,83 +291,22 @@ plot(pdp_rf_clust, geom = "profiles") +
 
 ```
 
-### Svm
 
 ```{r}
-
-library("ggplot2")
-# Create variable importance plot
-explainer_svm_rf <- DALEX::explain(
-    model = classifier,
-    data = train_x,
-    y = train_y,
-    label = "RandomForest"
-)
-
-
-svm_plot <- model_parts(explainer =explainer_svm_rf, 
-                          loss_function = loss_root_mean_square,
-                          B = 50,
-                          type = "difference")
-
-
-plot(svm_plot  ) +
-  ggtitle("Mean variable-importance over 50 permutations", "") 
-
-
 partialvip_randomforest <- model_profile(explainer = explainer_svm_rf)
 
 
 plot(partialvip_randomforest) +  ggtitle("Partial-dependence profile for signal") 
 
 
+```
 
+```{r}
 pdp_rf_clust <- model_profile(explainer =explainer_svm_rf,   k = 3)
 
 
 plot(pdp_rf_clust, geom = "profiles") + 
   ggtitle("Clustered partial-dependence profiles for signal") 
-
-
-```
-
-### lightgbm
-
-```{r}
-explainer_lightgbm <- DALEX::explain(model = model,
-                                     data = train_x,
-                                     y = train_y,
-                                     label = "LightGBM")
-
-# Calculate model parts
-new_observation_matrix <- as.matrix(train_x[1, , drop = FALSE])
-lightgbm_clust <- DALEX::predict_parts(explainer_lightgbm, 
-                                       new_observation = new_observation_matrix,
-                                       type = "break_down")
-
-# Plot the result
-plot(lightgbm_clust)
-
-# Plot variable importance
-library("ggplot2")
-plot(lightgbm_clust ) +
-  ggtitle("Mean variable-importance over 50 permutations", "") 
-
-
-partialvip_lightbm <- model_profile(explainer =lightgbm_clust )
-
-library("ggplot2")
-plot(partialvip_lightbm) +  ggtitle("Partial-dependence profile for signal") 
-
-
-
-lightbm_clust <- model_profile(explainer =lightgbm_clust, 
-                               k = 3)
-
-
-plot(lightgbm_clust, geom = "profiles") + 
-  ggtitle("Clustered partial-dependence profiles for signal") 
-
 
 
 ```
