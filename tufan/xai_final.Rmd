@@ -1,0 +1,846 @@
+---
+title: "XAI FINAL"
+author: "Tufan BOSTAN"
+date: "25127215588"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  error = FALSE,
+  message = FALSE
+)
+```
+
+```{r}
+#libraries
+library(dplyr)
+library(xgboost)
+library(DALEX)
+library(lightgbm)
+library(party)
+library(e1071)
+library(gbm)
+library(randomForest)
+```
+
+# forestfires
+
+```{r}
+forestfires <- read.csv(paste0(getwd(),"/forestfires.csv"))
+head(forestfires)
+summary(forestfires)
+```
+
+Bu veri kümesi, Portekiz'in kuzeydoğu bölgesindeki orman yangınlarının etkilediği alanın tahmin edilmesi amacıyla oluşturulmuştur. Veri seti, yangınların koordinatları, yangın tarihi ve çeşitli meteorolojik koşullar gibi bir dizi faktörü içermektedir. Bu faktörler, orman yangınlarının şiddetini ve yayılmasını etkileyen önemli bileşenlerdir. Veri seti, öncelikle "area" adlı çıktı değişkeni üzerine odaklanır. Bu değişken, orman yangınının neden olduğu alanın büyüklüğünü ifade eder.
+
+1. X - x-ekseni koordinatı (1 ile 9 arasında değerler alır).
+2. Y - y-ekseni koordinatı (2 ile 9 arasında değerler alır).
+3. Month - Yangın ayı (Ocak'tan Aralık'a kadar 12 farklı ayı temsil eden üç harfli kısaltmalarla, örneğin "jan" veya "aug").
+4. Day - Yangın günü (Pazartesiden Pazar'a kadar 7 farklı günü temsil eden 1 ile 7 arasında tam sayılar).
+5. FFMC - Fine Fuel Moisture Code, nem kodu (18.7 ile 96.20 arasında değerler alır).
+6. DMC - Duff Moisture Code, duff nem kodu (1.1 ile 291.3 arasında değerler alır).
+7. DC - Drought Code, kuruluk kodu (7.9 ile 860.6 arasında değerler alır).
+8. ISI - Initial Spread Index, başlangıç yayılma indeksi (0.0 ile 56.10 arasında değerler alır).
+9. Temp - Sıcaklık (2.2 ile 33.30 arasında değerler alır).
+10. RH - Relatif Nem (15 ile 100 arasında değerler alır).
+11. Wind - Rüzgar hızı (0.40 ile 9.40 arasında değerler alır).
+12. Rain - Yağış (0.0 ile 6.4 arasında değerler alır).
+13. Area - Orman yangınının etkilediği alanın büyüklüğü (sıfır veya pozitif gerçek sayılar, çoğunlukla sıfıra yakın).
+
+```{r}
+
+# Ay ve gün eşleme tablolarının oluşturulması
+month_map <- c(
+  'jan' = 1,
+  'feb' = 2,
+  'mar' = 3,
+  'apr' = 4,
+  'may' = 5,
+  'jun' = 6,
+  'jul' = 7,
+  'aug' = 8,
+  'sep' = 9,
+  'oct' = 10,
+  'nov' = 11,
+  'dec' = 12
+)
+
+day_map <- c(
+  'sun' = 7,
+  'mon' = 1,
+  'tue' = 2,
+  'wed' = 3,
+  'thu' = 4,
+  'fri' = 5,
+  'sat' = 6
+)
+
+
+# forestfires veri setindeki 'month' sütununu eşleme tablosuyla değiştirme
+forestfires <- forestfires %>%
+  mutate(month = month_map[month])
+
+# forestfires veri setindeki 'day' sütununu eşleme tablosuyla değiştirme
+forestfires <- forestfires %>%
+  mutate(day = day_map[day])
+
+# forestfires veri setinin yapısını inceleme
+str(forestfires)
+
+# Veri Setinin Bölünmesi
+set.seed(123)  # Tekrarlanabilirlik için
+sample <-
+  sample.int(
+    n = nrow(forestfires),
+    size = floor(.8 * nrow(forestfires)),
+    replace = FALSE
+  )
+
+# Eğitim veri setini oluşturma
+train_data <- forestfires[sample,]
+train_data_ff  <- train_data
+glimpse(train_data, width = 44)
+
+# Test veri setini oluşturma
+test_data <- forestfires[-sample,]
+glimpse(test_data, width = 44)
+
+```
+
+# XGBoost
+```{r}
+# XGBoost Modelinin Eğitilmesi
+# xgb.DMatrix ile eğitim verisi matrisini ve hedef değişkeni oluşturma
+xgb_data <-
+  xgb.DMatrix(data = as.matrix(train_data[, -13]), label = train_data$area)
+
+# xgb.train ile XGBoost modelini eğitme
+xgb_model <-
+  xgb.train(data = xgb_data,
+            nrounds = 100,
+            objective = "reg:squarederror")
+
+# DALEX::explain ile XGBoost modelini açıklama nesnesi oluşturma
+xgb_explainer <-
+  DALEX::explain(xgb_model, data = as.matrix(train_data[, -13]), y = train_data$area)
+
+# İlk gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[1, ]
+bd_xgb_1 <-
+  predict_parts(xgb_explainer,
+                new_observation = as.matrix(train_data[1, -13]),
+                type = "break_down")
+shap_xgb_1 <-
+  predict_parts(xgb_explainer,
+                new_observation = as.matrix(train_data[1, -13]),
+                type = "shap")
+plot(bd_xgb_1)
+plot(shap_xgb_1)
+
+# İkinci gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[2, ]
+bd_xgb_2 <-
+  predict_parts(xgb_explainer,
+                new_observation = as.matrix(train_data[2, -13]),
+                type = "break_down")
+shap_xgb_2 <-
+  predict_parts(xgb_explainer,
+                new_observation = as.matrix(train_data[2, -13]),
+                type = "shap")
+plot(bd_xgb_2)
+plot(shap_xgb_2)
+
+# Üçüncü gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[3, ]
+bd_xgb_3 <-
+  predict_parts(xgb_explainer,
+                new_observation = as.matrix(train_data[3, -13]),
+                type = "break_down")
+shap_xgb_3 <-
+  predict_parts(xgb_explainer,
+                new_observation = as.matrix(train_data[3, -13]),
+                type = "shap")
+plot(bd_xgb_3)
+plot(shap_xgb_3)
+
+# Dördüncü gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[4, ]
+bd_xgb_4 <-
+  predict_parts(xgb_explainer,
+                new_observation = as.matrix(train_data[4, -13]),
+                type = "break_down")
+shap_xgb_4 <-
+  predict_parts(xgb_explainer,
+                new_observation = as.matrix(train_data[4, -13]),
+                type = "shap")
+plot(bd_xgb_4)
+plot(shap_xgb_4)
+
+# Değişken önem sıralamasını hesaplama ve grafikleme
+xgb_var_imp <- DALEX::variable_importance(xgb_explainer)
+plot(xgb_var_imp)
+
+```
+
+# lightgbm
+
+```{r}
+# LightGBM veri setlerini tanımlama
+train_x <- data.matrix(train_data[,-13])
+train_y <- data.matrix(train_data[, 13])
+test_x <- data.matrix(test_data[,-13])
+test_y <- data.matrix(test_data[, 13])
+lgb_train <- lgb.Dataset(train_x, label = train_y)
+lgb_test <-
+  lgb.Dataset.create.valid(lgb_train, test_x, label = test_y)
+
+# LightGBM modelini early stopping ile eğitme
+lgb_model <- lgb.train(
+  params = list('verbose' = -1),
+  # Çalışma sırasında çıktıyı gizler
+  data = lgb_train,
+  nrounds = 100,
+  # Maksimum iterasyon sayısı
+  valids = list(test = lgb_test) # Doğrulama (validation) seti
+)
+
+# LightGBM modelini açıklama nesnesiyle açıklama
+lgb_explainer <-
+  DALEX::explain(lgb_model, data = as.matrix(train_data[, -13]), 
+                 y = train_data$area)
+
+# İlk gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[1, ]
+bd_lgb_1 <-
+  predict_parts(lgb_explainer,
+                new_observation = as.matrix(train_data[1, -13]),
+                type = "break_down")
+shap_lgb_1 <-
+  predict_parts(lgb_explainer,
+                new_observation = as.matrix(train_data[1, -13]),
+                type = "shap")
+plot(bd_lgb_1)
+plot(shap_lgb_1)
+
+# İkinci gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[2, ]
+bd_lgb_2 <-
+  predict_parts(lgb_explainer,
+                new_observation = as.matrix(train_data[2, -13]),
+                type = "break_down")
+shap_lgb_2 <-
+  predict_parts(lgb_explainer,
+                new_observation = as.matrix(train_data[2, -13]),
+                type = "shap")
+plot(bd_lgb_2)
+plot(shap_lgb_2)
+
+# Üçüncü gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[3, ]
+bd_lgb_3 <-
+  predict_parts(lgb_explainer,
+                new_observation = as.matrix(train_data[3, -13]),
+                type = "break_down")
+shap_lgb_3 <-
+  predict_parts(lgb_explainer,
+                new_observation = as.matrix(train_data[3, -13]),
+                type = "shap")
+plot(bd_lgb_3)
+plot(shap_lgb_3)
+
+# Dördüncü gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[4, ]
+bd_lgb_4 <-
+  predict_parts(lgb_explainer,
+                new_observation = as.matrix(train_data[4, -13]),
+                type = "break_down")
+shap_lgb_4 <-
+  predict_parts(lgb_explainer,
+                new_observation = as.matrix(train_data[4, -13]),
+                type = "shap")
+plot(bd_lgb_4)
+plot(shap_lgb_4)
+
+# Değişken önem sıralamasını hesaplama ve grafikleme
+lgb_var_imp <- DALEX::variable_importance(lgb_explainer)
+plot(lgb_var_imp)
+
+```
+
+
+# gbm
+
+```{r}
+# GBM modelini oluşturma
+gbm_model <-
+  gbm(area ~ .,
+      data = train_data,
+      n.trees = 100,
+      distribution = "gaussian")
+
+# GBM modeli ile tahmin yapma
+gbm_predictions <- predict(gbm_model, test_data[, -13])
+
+# GBM modelinin ortalama karesel hatasını hesaplama
+gbm_mse <- mean((test_data$area - gbm_predictions) ^ 2)
+
+# GBM modelini açıklama nesnesiyle açıklama
+gbm_explainer <-
+  DALEX::explain(gbm_model, data = train_data[,-13], y = train_data$area)
+
+# İlk gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[1,]
+bd_gbm_1 <-
+  predict_parts(gbm_explainer,
+                new_observation = train_data[1,-13],
+                type = "break_down")
+shap_gb_1 <-
+  predict_parts(gbm_explainer,
+                new_observation = train_data[1,-13], 
+                type = "shap")
+plot(bd_gbm_1)
+plot(shap_gb_1)
+
+# İkinci gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[2,]
+bd_gbm_2 <-
+  predict_parts(gbm_explainer,
+                new_observation = train_data[2,-13],
+                type = "break_down")
+shap_gb_2 <-
+  predict_parts(gbm_explainer, 
+                new_observation = train_data[2,-13], 
+                type = "shap")
+plot(bd_gbm_2)
+plot(shap_gb_2)
+
+# Üçüncü gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[3,]
+bd_gbm_3 <-
+  predict_parts(gbm_explainer, 
+                new_observation = train_data[3,-13], 
+                type = "break_down")
+shap_gb_3 <-
+  predict_parts(gbm_explainer, 
+                new_observation = train_data[3,-13], 
+                type = "shap")
+plot(bd_gbm_3)
+plot(shap_gb_3)
+
+# Dördüncü gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[4,]
+bd_gbm_4 <-
+  predict_parts(gbm_explainer, 
+                new_observation = train_data[4,-13], 
+                type = "break_down")
+shap_gb_4 <-
+  predict_parts(gbm_explainer, 
+                new_observation = train_data[4,-13], 
+                type = "shap")
+plot(bd_gbm_4)
+plot(shap_gb_4)
+
+# GBM modelinin değişken önem sıralamasını hesaplama ve grafikleme
+gbm_var_imp <- DALEX::variable_importance(gbm_explainer)
+plot(gbm_var_imp)
+```
+
+
+
+# ionosphere
+
+```{r}
+# Ionosphere veri setini CSV dosyasından okuma
+ionosphere <-
+  read.csv(paste0(getwd(),"/ionosphere.data.csv"),
+           header = FALSE)
+
+# Hedef değişkeni binary hale getirme: "g" ise 1, "b" ise 0
+ionosphere$V35 <- ifelse(ionosphere$V35 == "g", 1, 0)
+
+# Veri setinin genel yapısını inceleme
+glimpse(ionosphere)
+
+# Veri setinin özet istatistiklerini inceleme
+summary(ionosphere)
+
+# Veri setini eğitim ve test setlerine ayırma
+sample <-
+  sample.int(
+    n = nrow(ionosphere),
+    size = floor(.8 * nrow(ionosphere)),
+    replace = FALSE
+  )
+train_data <- ionosphere[sample,]
+glimpse(train_data, width = 44)
+test_data <- ionosphere[-sample,]
+glimpse(test_data, width = 44)
+```
+
+Ionosphere veri kümesi, radyo frekansı yansımasını incelemek ve atmosferdeki iyonosfer tabakasına yönelik radyo dalgalarının yansımasını tahmin etmek amacıyla toplanmıştır. Bu veri kümesi, özellikle sınıflandırma problemleri için tasarlanmıştır. Veri setinde iki sınıf bulunur: "g" (iyi) ve "b" (kötü). Bu sınıflar, iyonosfer tabakasına yansıyan radyo sinyallerinin özelliklerine dayanarak belirlenir.
+
+Veri kümesi, 34 sayısal özellik içerir. Bu özellikler, radyo dalgalarının farklı açılarda yansımasını temsil eder. Bu özelliklerin her biri, bir radyo sinyalinin iyonosfer tabakasına ne kadar etkili bir şekilde yansıdığını veya yansımadığını açıklar. Bu özelliklerin değerleri, ölçülen fiziksel özelliklerin sonuçlarıdır ve veri kümesinin amacı, bu özelliklerin değerlerine dayanarak bir radyo sinyalinin "iyi" veya "kötü" olduğunu sınıflandırmaktır.
+
+Bu veri kümesi, sınıflandırma algoritmalarının eğitilmesi ve test edilmesi için kullanılabilir. Özellikle, yeni radyo sinyallerinin iyonosfer tabakasına yansıma potansiyelini değerlendirmek için kullanılabilecek bir modelin geliştirilmesine yardımcı olabilir. Ayrıca, bu veri kümesi, makine öğrenimi uygulamalarında sınıflandırma, özellik seçimi ve model değerlendirmesi için birçok farklı deneyin yapıldığı bir test sahası olarak da kullanılabilir.
+
+
+# decision treees
+
+```{r}
+# Decision Tree (Karar Ağacı) modelini oluşturma
+dt_model <- ctree(V35 ~ ., data = train_data)
+
+# Karar Ağacı modelini görselleştirme
+plot(dt_model)
+
+# Decision Tree modelini açıklama nesnesi ile açıklama
+dt_explainer <-
+  DALEX::explain(dt_model, data = train_data[, -35], y = train_data$V35)
+
+# İlk gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[1, ]
+bd_dt_1 <-
+  predict_parts(dt_explainer, 
+                new_observation = train_data[1, -35], type = "break_down")
+shap_dt_1 <-
+  predict_parts(dt_explainer, 
+                new_observation = train_data[1, -35], type = "shap")
+plot(bd_dt_1)
+plot(shap_dt_1)
+
+# İkinci gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[2, ]
+bd_dt_2 <-
+  predict_parts(dt_explainer, 
+                new_observation = train_data[2, -35], type = "break_down")
+shap_dt_2 <-
+  predict_parts(dt_explainer, 
+                new_observation = train_data[2, -35], type = "shap")
+plot(bd_dt_2)
+plot(shap_dt_2)
+
+# Üçüncü gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[3, ]
+bd_dt_3 <-
+  predict_parts(dt_explainer,
+                new_observation = train_data[3, -35], type = "break_down")
+shap_dt_3 <-
+  predict_parts(dt_explainer, 
+                new_observation = train_data[3, -35], type = "shap")
+plot(bd_dt_3)
+plot(shap_dt_3)
+
+# Dördüncü gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[4, ]
+bd_dt_4 <-
+  predict_parts(dt_explainer, 
+                new_observation = train_data[4, -35], type = "break_down")
+shap_dt_4 <-
+  predict_parts(dt_explainer,
+                new_observation = train_data[4, -35], type = "shap")
+plot(bd_dt_4)
+plot(shap_dt_4)
+
+# Decision Tree modelinin değişken önem sıralamasını hesaplama ve grafikleme
+dt_var_imp <- DALEX::variable_importance(dt_explainer)
+plot(dt_var_imp)
+
+```
+
+# Random Forest
+
+```{r}
+# Veri setini matrise dönüştürme
+train_x <- data.matrix(train_data[,-35])
+train_y <- data.matrix(train_data[, 35])
+test_x <- data.matrix(test_data[,-35])
+test_y <- data.matrix(test_data[, 35])
+
+# Random Forest modelini eğitme
+rf_model <- randomForest(x = train_x,
+                         y = as.factor(train_y),
+                         ntree = 500)
+
+# Random Forest modelini açıklama nesnesi ile açıklama
+rf_explainer <-
+  DALEX::explain(rf_model, data = train_data[, -35], y = train_data$V35)
+
+# İlk gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[1, ]
+bd_rf_1 <-
+  predict_parts(rf_explainer,
+                new_observation = train_data[1, -35], type = "break_down")
+shap_rf_1 <-
+  predict_parts(rf_explainer, 
+                new_observation = train_data[1, -35], type = "shap")
+plot(bd_rf_1)
+plot(shap_rf_1)
+
+# İkinci gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[2, ]
+bd_rf_2 <-
+  predict_parts(rf_explainer, 
+                new_observation = train_data[2, -35], type = "break_down")
+shap_rf_2 <-
+  predict_parts(rf_explainer, 
+                new_observation = train_data[2, -35], type = "shap")
+plot(bd_rf_2)
+plot(shap_rf_2)
+
+# Üçüncü gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[3, ]
+bd_rf_3 <-
+  predict_parts(rf_explainer, 
+                new_observation = train_data[3, -35], type = "break_down")
+shap_rf_3 <-
+  predict_parts(rf_explainer, 
+                new_observation = train_data[3, -35], type = "shap")
+plot(bd_rf_3)
+plot(shap_rf_3)
+
+# Dördüncü gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[4, ]
+bd_rf_4 <-
+  predict_parts(rf_explainer, 
+                new_observation = train_data[4, -35], type = "break_down")
+shap_rf_4 <-
+  predict_parts(rf_explainer, 
+                new_observation = train_data[4, -35], type = "shap")
+plot(bd_rf_4)
+plot(shap_rf_4)
+
+# Random Forest modelinin değişken önem sıralamasını hesaplama ve grafikleme
+rf_var_imp <- DALEX::variable_importance(rf_explainer)
+plot(rf_var_imp)
+
+```
+
+
+
+# SVM
+
+
+```{r}
+# SVM modelini oluşturma
+svm_model <-
+  svm(
+    V35 ~ .,
+    data = train_data,
+    type = 'C-classification',
+    scale = FALSE,
+    probability = TRUE
+  )
+
+# SVM modelini açıklama nesnesi ile açıklama
+svm_explainer <-
+  DALEX::explain(svm_model, data = train_data[, -35], y = train_data$V35)
+
+# İlk gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[1, ]
+bd_svm_1 <-
+  predict_parts(svm_explainer, 
+                new_observation = train_data[1, -35], type = "break_down")
+shap_svm_1 <-
+  predict_parts(svm_explainer, 
+                new_observation = train_data[1, -35], type = "shap")
+plot(bd_svm_1)
+plot(shap_svm_1)
+
+# İkinci gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[2, ]
+bd_svm_2 <-
+  predict_parts(svm_explainer, 
+                new_observation = train_data[2, -35], type = "break_down")
+shap_svm_2 <-
+  predict_parts(svm_explainer, 
+                new_observation = train_data[2, -35], type = "shap")
+plot(bd_svm_2)
+plot(shap_svm_2)
+
+# Üçüncü gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[3, ]
+bd_svm_3 <-
+  predict_parts(svm_explainer, 
+                new_observation = train_data[3, -35], type = "break_down")
+shap_svm_3 <-
+  predict_parts(svm_explainer, 
+                new_observation = train_data[3, -35], type = "shap")
+plot(bd_svm_3)
+plot(shap_svm_3)
+
+# Dördüncü gözlem için Break Down (bd) ve SHAP değerleri hesaplama ve grafikleme
+train_data[4, ]
+bd_svm_4 <-
+  predict_parts(svm_explainer, 
+                new_observation = train_data[4, -35], type = "break_down")
+shap_svm_4 <-
+  predict_parts(svm_explainer, 
+                new_observation = train_data[4, -35], type = "shap")
+plot(bd_svm_4)
+plot(shap_svm_4)
+
+# SVM modelinin değişken önem sıralamasını hesaplama ve grafikleme
+svm_var_imp <- DALEX::variable_importance(svm_explainer)
+plot(svm_var_imp)
+
+```
+
+# Yorumlar 
+## forestfire
+### XGboost BD & Shap
+```{r}
+train_data_ff[1,]
+train_data_ff[2,]
+train_data_ff[3,]
+train_data_ff[4,]
+plot(bd_xgb_1)
+plot(bd_xgb_2)
+plot(bd_xgb_3)
+plot(bd_xgb_4)
+
+plot(shap_xgb_1)
+plot(shap_xgb_2)
+plot(shap_xgb_3)
+plot(shap_xgb_4)
+```
+
+#### Break Down
+İlk grafikte (1. gözlem), DMC (Duff Moisture Code) ve DC (Drought Code) değerlerinin model tahmini üzerinde büyük pozitif etkisi olduğunu görüyoruz. Bu iki değişken, orman yangını riskini değerlendirirken orman tabanı ve organik katmanın nem durumunu gösterir ve bu modelde yangın alanını tahmin etmede en belirleyici faktörlerden biri olarak ortaya çıkıyor.
+
+İkinci grafikte (2. gözlem), yine DMC ve DC değerlerinin model tahmini üzerinde büyük pozitif etkisi var, ancak bu sefer rüzgar hızının (wind) da önemli bir etkisi olduğunu gözlemliyoruz. Yüksek rüzgar hızı yangının daha büyük alanlara yayılma riskini artırabilir.
+
+Üçüncü grafikte (3. gözlem), DC'nin yine büyük bir pozitif etki yaptığı görülüyor, ancak DMC'nin etkisi bu sefer negatif. Bunun yanı sıra, göreceli nem (RH) ve rüzgar hızı (wind) gibi diğer değişkenlerin de küçük pozitif katkıları var.
+
+Dördüncü grafikte (4. gözlem), model tahmini üzerinde en büyük pozitif etkiyi yine DMC ve DC'nin yaptığı görülüyor. Ancak bu sefer, ISI (Initial Spread Index) ve sıcaklık (temp) gibi diğer değişkenlerin de model tahminine büyük etkileri olduğu gözlemleniyor.
+
+#### Shap
+
+1. Grafik (1. gözlem):
+Sıcaklık (temp) ve DMC en büyük negatif etkiye sahipken, DC ve ay (month) en büyük pozitif etkiye sahip.
+ISI ve göreceli nem (RH) gibi diğer özelliklerin de küçük katkıları var.
+
+2. Grafik (2. gözlem):
+Bu grafikte, DMC'nin yüksek pozitif bir etkisi varken, RH (göreceli nem) ciddi bir negatif katkıya sahip.
+Diğer özelliklerin katkıları karışık; DC ve ay (month) pozitif, ISI ve rüzgar hızı (wind) negatif katkılar sağlıyor.
+
+3. Grafik (3. gözlem):
+DMC ve ISI'nin küçük pozitif katkıları varken, DC ve ay (month) büyük pozitif etkilere sahip.
+Sıcaklık (temp) ve RH (göreceli nem) negatif katkılar sağlıyor.
+
+4. Grafik (4. gözlem):
+Bu grafikte, DC ve ay (month) büyük pozitif etkiler gösterirken, temp ve ISI büyük negatif etkiler gösteriyor.
+DMC ve rüzgar hızının (wind) küçük negatif etkileri var.
+
+
+XGBoost modeli tarafından üretilen SHAP ve Break Down analizleri, orman yangını risk tahminlerinde DMC ve DC'nin özellikle belirleyici olduğunu göstermektedir. Her iki analiz türü de, sıcaklık ve rüzgar hızının tahminleri önemli ölçüde etkilediğini, ancak bu etkilerin gözlem noktalarına göre değişkenlik gösterdiğini ortaya koymaktadır. Göreceli nemin genellikle yangın riskini düşüren bir faktör olarak öne çıktığı, mevsimsellik etkisinin ise ay değişkeninde açıkça görüldüğü anlaşılmaktadır. Bu analizler, modelin hangi özelliklere daha fazla ağırlık verdiğini ve bu özelliklerin yangın büyüklüğü ve yayılımı üzerindeki potansiyel etkilerini derinlemesine anlamak için kritik bilgiler sağlar.
+
+### lighgbm BD & Shap
+```{r}
+plot(bd_lgb_1)
+plot(bd_lgb_2)
+plot(bd_lgb_3)
+plot(bd_lgb_4)
+
+plot(shap_lgb_1)
+plot(shap_lgb_2)
+plot(shap_lgb_3)
+plot(shap_lgb_4)
+```
+
+
+### gbm BD & Shap
+
+```{r}
+plot(bd_gbm_1)
+plot(bd_gbm_2)
+plot(bd_gbm_3)
+plot(bd_gbm_4)
+
+plot(shap_gb_1)
+plot(shap_gb_2)
+plot(shap_gb_3)
+plot(shap_gb_4)
+```
+
+### Variable Importance
+
+```{r}
+plot(xgb_var_imp)
+plot(lgb_var_imp)
+plot(gbm_var_imp)
+```
+
+**XGBoost Modeli:**
+
+- 'temp' değişkeni, bu model için açıkça en önemli özellik olarak öne çıkıyor, diğer tüm değişkenlerden çok daha büyük bir öneme sahip.
+- 'Y' ve 'FFMC' değişkenleri de önemli özellikler olarak belirginleşiyor, ancak 'temp' değişkeninin yaklaşık yarısı kadar etkiye sahipler.
+- 'DMC', 'DC', 'RH', ve diğer değişkenler daha az öneme sahip ancak yine de modelin tahminleri üzerinde bir etkiye sahip oldukları görülüyor.
+
+**LGB Modeli:**
+
+- Bu modelde de 'temp' değişkeni en önemli özellik olarak belirlenmiş, ancak XGBoost modeline göre daha az belirgin bir farkla.
+- 'Y' ve 'RH' özellikleri de bu modelde önemli olarak sıralanmış.
+- 'X', 'ISI', 'wind' ve diğer değişkenlerin önemi göreceli olarak düşük.
+
+**GBM Modeli:**
+
+- 'temp' değişkeni, GBM modelinde de en önemli özellik olarak karşımıza çıkıyor ve açık bir farkla diğerlerinden öne çıkıyor.
+- 'DMC', 'RH' ve 'month' de bu model için önemli özellikler.
+- 'DC', 'FFMC', 'day' ve diğer değişkenler daha az önemli ancak hala model tahminlerine katkı sağlıyorlar.
+
+**Genel Yorum:**
+
+- Tüm modellerde 'temp' değişkeni en önemli özellik olarak sıralanmıştır, bu durum bu değişkenin tahminler üzerindeki güçlü ve tutarlı etkisini gösterir.
+- Modelden modele değişken öneminde bazı farklılıklar olsa da, bazı değişkenler (örneğin 'temp', 'Y', 'RH') genel olarak önemli özellikler olarak sıralanmaktadır.
+
+## ionosphpere
+
+### decision tree BD & Shap
+```{r}
+train_data[1,]
+train_data[2,]
+train_data[3,]
+train_data[4,]
+plot(bd_dt_1)
+plot(bd_dt_2)
+plot(bd_dt_3)
+plot(bd_dt_4)
+
+plot(shap_dt_1)
+plot(shap_dt_2)
+plot(shap_dt_3)
+plot(shap_dt_4)
+```
+
+### random forest BD & Shap
+```{r}
+plot(bd_rf_1)
+plot(bd_rf_2)
+plot(bd_rf_3)
+plot(bd_rf_4)
+
+plot(shap_rf_1)
+plot(shap_rf_2)
+plot(shap_rf_3)
+plot(shap_rf_4)
+```
+
+### svm BD & Shap
+```{r}
+plot(bd_svm_1)
+plot(bd_svm_2)
+plot(bd_svm_3)
+plot(bd_svm_4)
+
+plot(shap_svm_1)
+plot(shap_svm_2)
+plot(shap_svm_3)
+plot(shap_svm_4)
+```
+
+
+### Variable Importance
+```{r}
+plot(dt_var_imp)
+plot(rf_var_imp)
+plot(svm_var_imp)
+```
+
+**DT Modeli:**
+
+- 'V5', 'V3' ve 'V1' özellikleri, modelin RMSE'sini en çok etkileyen özellikler olarak sıralanmıştır. Bu, bu özelliklerin değiştirilmesi veya karıştırılması durumunda modelin performansının önemli ölçüde kötüleşeceği anlamına gelir.
+- Orta seviyede öneme sahip diğer özellikler ('V9', 'V8', 'V7', vb.) de var ve bunlar da modelin performansını etkiler, ancak en üstteki özellikler kadar belirgin değil.
+- En alttaki özellikler ('V10', 'V11', 'V12', vb.), modelin RMSE'sini etkileme konusunda en az öneme sahip özelliklerdir.
+
+**RandomForest Modeli:**
+
+- 'V5', 'V3' ve 'V7' özellikleri, AUC kaybını en çok etkileyen özellikler olarak sıralanmıştır. Bu özellikler, modelin performansı üzerinde önemli bir etkiye sahip olduğunu gösterir.
+- Özelliklerin çoğu, modele göre oldukça düşük bir öneme sahip görünüyor, bu da RandomForest modelinin özellik seçiminde daha yaygın bir etki dağılımına sahip olabileceğine işaret ediyor.
+
+**SVM Modeli:**
+
+- SVM modeli için 'V2', 'V18', ve 'V28' özellikleri en önemli özellikler olarak sıralanmıştır.
+- Bu model, diğer iki modelden farklı olarak, özelliklerin çok geniş bir önem spektrumu gösterdiği için özellik seçiminde daha belirgin bir farklılığa sahip.
+- Özellik öneminin daha geniş bir dağılımı olduğunu ve pek çok özelliğin modelin AUC performansını etkilediğini görebiliyoruz.
+
+**Genel Yorum:**
+
+- Üç model arasında, en önemli özelliklerin sıralamasında bazı tutarlılıklar (örneğin, 'V5' ve 'V3' özelliklerinin yüksek önemi) ve bazı farklılıklar (örneğin, RandomForest modelinde 'V7' özelliğinin yüksek önemi ve SVM modelinde 'V18' özelliğinin önemi) bulunmaktadır.
+
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+# library(cowplot)
+# plot_grid(plot(bd_gbm_1),
+#           plot(bd_gbm_2),
+#           plot(bd_gbm_3),
+#           plot(bd_gbm_4),
+#           plot(bd_xgb_1),
+#           plot(bd_xgb_2),
+#           plot(bd_xgb_3),
+#           plot(bd_xgb_4),
+#           plot(bd_lgb_1),
+#           plot(bd_lgb_2),
+#           plot(bd_lgb_3),
+#           plot(bd_lgb_4),
+#           plot(shap_gb_1),
+#           plot(shap_gb_2),
+#           plot(shap_gb_3),
+#           plot(shap_gb_4),
+#           plot(shap_xgb_1),
+#           plot(shap_xgb_2),
+#           plot(shap_xgb_3),
+#           plot(shap_xgb_4),
+#           plot(shap_lgb_1),
+#           plot(shap_lgb_2),
+#           plot(shap_lgb_3),
+#           plot(shap_lgb_4),
+#           ncol = 4, labels = c("V1","V2","V3","V4"))
+# 
+# plot_grid(plot(xgb_var_imp),
+#           plot(lgb_var_imp),
+#           plot(gbm_var_imp),
+#           ncol = 1)
+# 
+# 
+# plot_grid(plot(bd_rf_1),
+#           plot(bd_rf_2),
+#           plot(bd_rf_3),
+#           plot(bd_rf_4),
+#           plot(bd_dt_1),
+#           plot(bd_dt_2),
+#           plot(bd_dt_3),
+#           plot(bd_dt_4),
+#           plot(bd_svm_1),
+#           plot(bd_svm_2),
+#           plot(bd_svm_3),
+#           plot(bd_svm_4),
+#           plot(shap_rf_1),
+#           plot(shap_rf_2),
+#           plot(shap_rf_3),
+#           plot(shap_rf_4),
+#           plot(shap_dt_1),
+#           plot(shap_dt_2),
+#           plot(shap_dt_3),
+#           plot(shap_dt_4),
+#           plot(shap_svm_1),
+#           plot(shap_svm_2),
+#           plot(shap_svm_3),
+#           plot(shap_svm_4),
+#           ncol = 4, labels = c("V1","V2","V3","V4"))
+# 
+# 
+# 
+# 
+# plot_grid(plot(dt_var_imp),
+#           plot(rf_var_imp),
+#           plot(svm_var_imp),
+#           ncol = 1)
+
+
+```
+
+
